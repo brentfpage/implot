@@ -2019,18 +2019,21 @@ bool UpdateInput(ImPlotPlot& plot) {
         }
     }
 
+// brentfpage edit: use IO.MouseWheelH (H means horizontal) to determine the horizontal zoom rate, IO.MouseWheel (which is tacitly vertical wheel) to determine the vertical zoom rate.  IO.MouseWheel and IO.MouseWheelH have been set in imgui.cpp->ImGui::UpdateInputEvents and indirectly in imgui.cpp->ImGuiIO::AddPinchUpdateEvent
+// replace genuine implot approach with one more similar to that in the "// Zoom / Scale window" section of imgui.cpp->ImGui::UpdateMouseWheel()
+
     // SCROLL INPUT -----------------------------------------------------------
 
     if (any_hov && ImHasFlag(IO.KeyMods, gp.InputMap.ZoomMod)) {
 
-        float zoom_rate = gp.InputMap.ZoomRate;
-        if (IO.MouseWheel == 0.0f)
-            zoom_rate = 0;
-        else if (IO.MouseWheel > 0)
-            zoom_rate = (-zoom_rate) / (1.0f + (2.0f * zoom_rate));
+
+        float zoom_rate = IO.MouseWheelH * 0.1;
+
+
         ImVec2 rect_size = plot.PlotRect.GetSize();
-        float tx = ImRemap(IO.MousePos.x, plot.PlotRect.Min.x, plot.PlotRect.Max.x, 0.0f, 1.0f);
-        float ty = ImRemap(IO.MousePos.y, plot.PlotRect.Min.y, plot.PlotRect.Max.y, 0.0f, 1.0f);
+        float tx = ImRemap(IO.FocusPos.x, plot.PlotRect.Min.x, plot.PlotRect.Max.x, 0.0f, 1.0f);
+        float ty = ImRemap(IO.FocusPos.y, plot.PlotRect.Min.y, plot.PlotRect.Max.y, 0.0f, 1.0f);
+
 
         // Track which axis to use as reference for equal aspect
         ImPlotAxis* equal_ref_axis = nullptr;
@@ -2040,8 +2043,10 @@ bool UpdateInput(ImPlotPlot& plot) {
             const bool equal_zoom   = axis_equal && x_axis.OrthoAxis != nullptr;
             const bool equal_locked = (equal_zoom != false) && x_axis.OrthoAxis->IsInputLocked();
             if (x_hov[i] && !x_axis.IsInputLocked() && !equal_locked) {
-                ImGui::SetKeyOwner(ImGuiKey_MouseWheelY, plot.ID);
+
+                ImGui::SetKeyOwner(ImGuiKey_MouseWheelX, plot.ID);
                 if (zoom_rate != 0.0f) {
+
                     const double plot_l = x_axis.PixelsToPlot(plot.PlotRect.Min.x - rect_size.x * tx * zoom_rate);
                     const double plot_r = x_axis.PixelsToPlot(plot.PlotRect.Max.x + rect_size.x * (1 - tx) * zoom_rate);
                     x_axis.SetMin(x_axis.IsInverted() ? plot_r : plot_l);
@@ -2052,6 +2057,7 @@ bool UpdateInput(ImPlotPlot& plot) {
                 }
             }
         }
+        zoom_rate = IO.MouseWheel * 0.1;
         for (int i = 0; i < IMPLOT_NUM_Y_AXES; i++) {
             ImPlotAxis& y_axis = plot.YAxis(i);
             const bool equal_zoom   = axis_equal && y_axis.OrthoAxis != nullptr;
