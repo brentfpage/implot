@@ -2032,18 +2032,12 @@ bool UpdateInput(ImPlotPlot& plot) {
     for (int i = 0; i < IMPLOT_NUM_X_AXES; i++) {
         if (x_long_press[i]) {
             ImGui::SetNextWindowPos(ImGui::GetWindowPos() + ImGui::GetWindowSize()/2.,0,{0.5,0.5});
+        ImGui::SetNextWindowPos(ImGui::GetWindowPos() + ImGui::GetWindowSize()/2.,0,{0.5,0.5});
             ImGui::OpenPopup("select x lims");
         }
     }
-    for (int i = 0; i < IMPLOT_NUM_Y_AXES; i++) {
-        if (y_long_press[i]) {
-            ImGui::OpenPopup("select y lims");
-        }
-    }
-
-    ImGuiStyle& style = ImGui::GetStyle();
-    ImGui::SetNextWindowPos(ImGui::GetWindowPos() + ImGui::GetWindowSize()/2.,0,{0.5,0.5});
     if(ImGui::BeginPopup("select x lims")) {
+        ImGuiStyle& style = ImGui::GetStyle();
         ImGui::Text("X-axis limits:");
         ImGui::PushItemWidth(ImGui::CalcTextSize("-10.00 s").x + 2 * style.FramePadding.x);
         float new_min = plot.XAxis(0).Range.Min;
@@ -2059,8 +2053,14 @@ bool UpdateInput(ImPlotPlot& plot) {
         plot.XAxis(0).SetMin(new_min);
         ImGui::EndPopup();
     }
-    ImGui::SetNextWindowPos(ImGui::GetWindowPos() + ImGui::GetWindowSize()/2.,0,{0.5,0.5});
+    for (int i = 0; i < IMPLOT_NUM_Y_AXES; i++) {
+        if (y_long_press[i]) {
+            ImGui::OpenPopup("select y lims");
+            ImGui::SetNextWindowPos(ImGui::GetWindowPos() + ImGui::GetWindowSize()/2.,0,{0.5,0.5});
+        }
+    }
     if(ImGui::BeginPopup("select y lims")) {
+        ImGuiStyle& style = ImGui::GetStyle();
         ImGui::Text("Y-axis limits:");
         ImGui::PushItemWidth(ImGui::CalcTextSize("-20.00 V").x + 2 * style.FramePadding.x);
         float new_max = plot.YAxis(0).Range.Max;
