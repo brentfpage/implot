@@ -1907,19 +1907,25 @@ bool UpdateInput(ImPlotPlot& plot) {
 
     plot.Held = plot.Held && can_pan;
 
-    bool x_click[IMPLOT_NUM_X_AXES] = {false};
-    bool x_held[IMPLOT_NUM_X_AXES]  = {false};
-    bool x_hov[IMPLOT_NUM_X_AXES]   = {false};
+    bool x_click[IMPLOT_NUM_X_AXES]      = {false};
+    bool x_long_press[IMPLOT_NUM_X_AXES] = {false};
+    bool x_held[IMPLOT_NUM_X_AXES]       = {false};
+    bool x_hov[IMPLOT_NUM_X_AXES]        = {false};
 
-    bool y_click[IMPLOT_NUM_Y_AXES] = {false};
-    bool y_held[IMPLOT_NUM_Y_AXES]  = {false};
-    bool y_hov[IMPLOT_NUM_Y_AXES]   = {false};
+    bool y_click[IMPLOT_NUM_Y_AXES]      = {false};
+    bool y_long_press[IMPLOT_NUM_Y_AXES] = {false};
+    bool y_held[IMPLOT_NUM_Y_AXES]       = {false};
+    bool y_hov[IMPLOT_NUM_Y_AXES]        = {false};
 
     for (int i = 0; i < IMPLOT_NUM_X_AXES; ++i) {
         ImPlotAxis& xax = plot.XAxis(i);
         if (xax.Enabled) {
             ImGui::KeepAliveID(xax.ID);
-            x_click[i]  = ImGui::ButtonBehavior(xax.HoverRect,xax.ID,&xax.Hovered,&xax.Held,axis_button_flags);
+            ImGuiID xax_button_id = ImGui::GetIDWithSeed("button", NULL, xax.ID);
+            ImGui::ItemAdd(xax.HoverRect, xax_button_id, NULL, 0);
+            x_click[i]  = ImGui::ButtonBehavior(xax.HoverRect,xax_button_id,&xax.Hovered,&xax.Held,axis_button_flags);
+            float long_thresh = 0.5; // seconds
+            x_long_press[i] = ImGui::IsItemActive() && (ImGui::GetCurrentContext()->ActiveIdTimer >= long_thresh);
             if (x_click[i] && IO.MouseDoubleClicked[gp.InputMap.Fit])
                 plot.FitThisFrame = xax.FitThisFrame = true;
             xax.Held  = xax.Held && can_pan;
@@ -1932,7 +1938,11 @@ bool UpdateInput(ImPlotPlot& plot) {
         ImPlotAxis& yax = plot.YAxis(i);
         if (yax.Enabled) {
             ImGui::KeepAliveID(yax.ID);
-            y_click[i]  = ImGui::ButtonBehavior(yax.HoverRect,yax.ID,&yax.Hovered,&yax.Held,axis_button_flags);
+            ImGuiID yax_button_id = ImGui::GetIDWithSeed("button", NULL, yax.ID);
+            ImGui::ItemAdd(yax.HoverRect, yax_button_id, NULL, 0);
+            y_click[i] = ImGui::ButtonBehavior(yax.HoverRect,yax_button_id,&yax.Hovered,&yax.Held,axis_button_flags);
+            float long_thresh = 0.5; // seconds
+            y_long_press[i] = ImGui::IsItemActive() && (ImGui::GetCurrentContext()->ActiveIdTimer >= long_thresh);
             if (y_click[i] && IO.MouseDoubleClicked[gp.InputMap.Fit])
                 plot.FitThisFrame = yax.FitThisFrame = true;
             yax.Held  = yax.Held && can_pan;
@@ -1975,11 +1985,12 @@ bool UpdateInput(ImPlotPlot& plot) {
 
     // DRAG INPUT -------------------------------------------------------------
 
+// brentfpage : in the two blocks below, replaced (x,y)_held[i] with plot.Held below in order to use (x,y)_held[i] for a different action.  with this replacement, dragging on the main plot canvas still brings about a pan, as desired.  If the ImPlotPlot `plot` consists of multiple plots, it's not obvious that using plot.Held would be desirable, but probably Labrador will only ever need one plot
     if (any_held && !plot.Selecting) {
         int drag_direction = 0;
         for (int i = 0; i < IMPLOT_NUM_X_AXES; i++) {
             ImPlotAxis& x_axis = plot.XAxis(i);
-            if (x_held[i] && !x_axis.IsInputLocked()) {
+            if (plot.Held && !x_axis.IsInputLocked()) {
                 drag_direction |= (1 << 1);
                 bool increasing = x_axis.IsInverted() ? IO.MouseDelta.x > 0 : IO.MouseDelta.x < 0;
                 if (IO.MouseDelta.x != 0 && !x_axis.IsPanLocked(increasing)) {
@@ -1995,7 +2006,7 @@ bool UpdateInput(ImPlotPlot& plot) {
         }
         for (int i = 0; i < IMPLOT_NUM_Y_AXES; i++) {
             ImPlotAxis& y_axis = plot.YAxis(i);
-            if (y_held[i] && !y_axis.IsInputLocked()) {
+            if (plot.Held && !y_axis.IsInputLocked()) {
                 drag_direction |= (1 << 2);
                 bool increasing = y_axis.IsInverted() ? IO.MouseDelta.y < 0 : IO.MouseDelta.y > 0;
                 if (IO.MouseDelta.y != 0 && !y_axis.IsPanLocked(increasing)) {
@@ -2018,6 +2029,49 @@ bool UpdateInput(ImPlotPlot& plot) {
             }
         }
     }
+    for (int i = 0; i < IMPLOT_NUM_X_AXES; i++) {
+        if (x_long_press[i]) {
+            ImGui::SetNextWindowPos(ImGui::GetWindowPos() + ImGui::GetWindowSize()/2.,0,{0.5,0.5});
+            ImGui::OpenPopup("select x lims");
+        }
+    }
+    for (int i = 0; i < IMPLOT_NUM_Y_AXES; i++) {
+        if (y_long_press[i]) {
+            ImGui::OpenPopup("select y lims");
+        }
+    }
+
+    ImGuiStyle& style = ImGui::GetStyle();
+    ImGui::SetNextWindowPos(ImGui::GetWindowPos() + ImGui::GetWindowSize()/2.,0,{0.5,0.5});
+    if(ImGui::BeginPopup("select x lims")) {
+        ImGui::Text("X-axis limits:");
+        ImGui::PushItemWidth(ImGui::CalcTextSize("-10.00 s").x + 2 * style.FramePadding.x);
+        float new_min = plot.XAxis(0).Range.Min;
+        float new_max = plot.XAxis(0).Range.Max;
+        ImGui::InputFloat("Min", &new_min, 0.f, 0.f, "%.2f s");
+        float new_window = plot.XAxis(0).Range.Max - new_min;
+        float new_delay = fabs(-new_max); // fabs to prevent signed 0
+        ImGui::InputFloat("Window", &new_window, 0.f, 0.f, "%.2f s");
+        ImGui::InputFloat("Delay", &new_delay, 0.f, 0.f, "%.2f s");
+        new_min = -new_delay - new_window;
+        new_max = -new_delay;
+        plot.XAxis(0).SetMax(new_max);
+        plot.XAxis(0).SetMin(new_min);
+        ImGui::EndPopup();
+    }
+    ImGui::SetNextWindowPos(ImGui::GetWindowPos() + ImGui::GetWindowSize()/2.,0,{0.5,0.5});
+    if(ImGui::BeginPopup("select y lims")) {
+        ImGui::Text("Y-axis limits:");
+        ImGui::PushItemWidth(ImGui::CalcTextSize("-20.00 V").x + 2 * style.FramePadding.x);
+        float new_max = plot.YAxis(0).Range.Max;
+        float new_min = plot.YAxis(0).Range.Min;
+        ImGui::InputFloat("Max", &new_max, 0.f, 0.f, "%.2f V");
+        ImGui::InputFloat("Min", &new_min, 0.f, 0.f, "%.2f V");
+        plot.YAxis(0).SetMax(new_max);
+        plot.YAxis(0).SetMin(new_min);
+        ImGui::EndPopup();
+    }
+
 
 // brentfpage edit: use IO.MouseWheelH (H means horizontal) to determine the horizontal zoom rate, IO.MouseWheel (which is tacitly vertical wheel) to determine the vertical zoom rate.  IO.MouseWheel and IO.MouseWheelH have been set in imgui.cpp->ImGui::UpdateInputEvents and indirectly in imgui.cpp->ImGuiIO::AddPinchUpdateEvent
 // replace genuine implot approach with one more similar to that in the "// Zoom / Scale window" section of imgui.cpp->ImGui::UpdateMouseWheel()
