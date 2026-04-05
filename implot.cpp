@@ -1929,8 +1929,8 @@ bool UpdateInput(ImPlotPlot& plot) {
             x_click[i]  = ImGui::ButtonBehavior(xax.HoverRect,xax_button_id,&xax.Hovered,&xax.Held,axis_button_flags);
             float long_thresh = 0.5; // seconds
             x_long_press[i] = ImGui::IsItemActive() && (ImGui::GetCurrentContext()->ActiveIdTimer >= long_thresh) && (ImGui::GetMouseDragDelta()==ImVec2(0.f,0.f));
-            if (x_click[i] && IO.MouseDoubleClicked[gp.InputMap.Fit])
-                plot.FitThisFrame = xax.FitThisFrame = true;
+//             if (x_click[i] && IO.MouseDoubleClicked[gp.InputMap.Fit])
+//                 plot.FitThisFrame = xax.FitThisFrame = true;
             xax.Held  = xax.Held && can_pan;
             x_hov[i]  = xax.Hovered || plot.Hovered;
             x_held[i] = xax.Held    || plot.Held;
@@ -1947,8 +1947,8 @@ bool UpdateInput(ImPlotPlot& plot) {
             y_click[i] = ImGui::ButtonBehavior(yax.HoverRect,yax_button_id,&yax.Hovered,&yax.Held,axis_button_flags);
             float long_thresh = 0.5; // seconds
             y_long_press[i] = ImGui::IsItemActive() && (ImGui::GetCurrentContext()->ActiveIdTimer >= long_thresh) && (ImGui::GetMouseDragDelta()==ImVec2(0.f,0.f));
-            if (y_click[i] && IO.MouseDoubleClicked[gp.InputMap.Fit])
-                plot.FitThisFrame = yax.FitThisFrame = true;
+//             if (y_click[i] && IO.MouseDoubleClicked[gp.InputMap.Fit])
+//                 plot.FitThisFrame = yax.FitThisFrame = true;
             yax.Held  = yax.Held && can_pan;
             y_hov[i]  = yax.Hovered || plot.Hovered;
             y_held[i] = yax.Held    || plot.Held;
@@ -2041,8 +2041,14 @@ bool UpdateInput(ImPlotPlot& plot) {
             plot.XAxis(i).Clicked = false;
         }
     }
-
-
+    for (int i = 0; i < IMPLOT_NUM_Y_AXES; i++) {
+        if (y_click[i]) {
+            plot.YAxis(i).ClickedVal = ImPlot::GetPlotMousePos(IMPLOT_AUTO,IMPLOT_AUTO).y;
+            plot.YAxis(i).Clicked = true;
+        } else {
+            plot.YAxis(i).Clicked = false;
+        }
+    }
     for (int i = 0; i < IMPLOT_NUM_X_AXES; i++) {
         if (x_long_press[i]) {
             ImGui::SetNextWindowPos(ImGui::GetWindowPos() + ImGui::GetWindowSize()/2.,0,{0.5,0.5});
@@ -4129,13 +4135,14 @@ bool DragLineX(int n_id, double* value, const ImVec4& col, float thickness, ImPl
     bool hovered = false, held = false;
 
     ImGui::KeepAliveID(id);
-    ImGui::SetLastItemData(id, flags, ImGuiItemStatusFlags_None, rect); // brentfpage: to get ImGui::ItemIsDeactivatedAfterEdit to work
+    bool modified = false;
     if (input) {
         bool clicked = ImGui::ButtonBehavior(rect,id,&hovered,&held);
         if(!ImHasFlag(flags, ImPlotDragToolFlags_NoAxisInputs)) {
             held = held || ImPlot::IsAxisHeld(ImAxis_X1);
             if(ImPlot::IsAxisClicked(ImAxis_X1)) {
                 *value = ImPlot::getClickedVal(ImAxis_X1);
+                modified = true;
             }
         }
         if (out_clicked) *out_clicked = clicked;
@@ -4150,10 +4157,8 @@ bool DragLineX(int n_id, double* value, const ImVec4& col, float thickness, ImPl
     ImVec4 color = IsColorAuto(col) ? ImGui::GetStyleColorVec4(ImGuiCol_Text) : col;
     ImU32 col32 = ImGui::ColorConvertFloat4ToU32(color);
 
-    bool modified = false;
     if (held && ImGui::IsMouseDragging(0)) {
         *value = ImPlot::GetPlotMousePos(IMPLOT_AUTO,IMPLOT_AUTO).x;
-//         ImGui::MarkItemEdited(id);// brentfpage: to get ImGui::ItemIsDeactivatedAfterEdit to work
         modified = true;
     }
 
