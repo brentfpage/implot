@@ -4160,10 +4160,10 @@ bool DragLineX(int n_id, double* value, const ImVec4& col, float thickness, ImPl
     ImRect rect(x-grab_half_size,yt,x+grab_half_size,yb);
     bool hovered = false, held = false;
 
-    ImGui::KeepAliveID(id);
+//     ImGui::KeepAliveID(id);
     bool modified = false;
     if (input) {
-        bool clicked = ImGui::ButtonBehavior(rect,id,&hovered,&held);
+        bool clicked = false;//ImGui::ButtonBehavior(rect,id,&hovered,&held);
         if(!ImHasFlag(flags, ImPlotDragToolFlags_NoAxisInputs)) {
             held = held || ImPlot::IsAxisHeld(ImAxis_X1);
             if(ImPlot::IsAxisClicked(ImAxis_X1)) {
@@ -4223,10 +4223,10 @@ bool DragLineY(int n_id, double* value, const ImVec4& col, float thickness, ImPl
     ImRect rect(xl,y-grab_half_size,xr,y+grab_half_size);
     bool hovered = false, held = false;
 
-    ImGui::KeepAliveID(id);
+//     ImGui::KeepAliveID(id);
     bool modified = false;
     if (input) {
-        bool clicked = ImGui::ButtonBehavior(rect,id,&hovered,&held);
+        bool clicked = false;//ImGui::ButtonBehavior(rect,id,&hovered,&held);
         if(!ImHasFlag(flags, ImPlotDragToolFlags_NoAxisInputs)) {
             held = held || ImPlot::IsAxisHeld(ImAxis_Y1);
             if(ImPlot::IsAxisClicked(ImAxis_Y1)) {
