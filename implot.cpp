@@ -1925,7 +1925,7 @@ bool UpdateInput(ImPlotPlot& plot) {
             ImGui::KeepAliveID(xax.ID);
             ImGuiID xax_button_id = ImGui::GetIDWithSeed("button", NULL, xax.ID);
             ImGui::KeepAliveID(xax_button_id);
-            ImGui::SetLastItemData(xax_button_id, axis_button_flags, ImGuiItemStatusFlags_None, xax.HoverRect); // brentfpage: to get ImGui::IsItemActive to work;
+            ImGui::SetLastItemData(xax_button_id, axis_button_flags, ImGuiItemStatusFlags_None, xax.HoverRect); // brentfpage: to get ImGui::IsItemActive and ImGui::IsItemActivated to work;
             x_click[i]  = ImGui::ButtonBehavior(xax.HoverRect,xax_button_id,&xax.Hovered,&xax.Held,axis_button_flags);
             if(xax.Held && ImGui::IsItemActivated()) {
                 xax.MouseDownClickedVal = ImPlot::GetPlotMousePos(IMPLOT_AUTO,IMPLOT_AUTO).x;
@@ -1951,6 +1951,12 @@ bool UpdateInput(ImPlotPlot& plot) {
             ImGui::KeepAliveID(yax_button_id);
             ImGui::SetLastItemData(yax_button_id, axis_button_flags, ImGuiItemStatusFlags_None, yax.HoverRect); // brentfpage: to get ImGui::IsItemActive to work;
             y_click[i] = ImGui::ButtonBehavior(yax.HoverRect,yax_button_id,&yax.Hovered,&yax.Held,axis_button_flags);
+            if(yax.Held && ImGui::IsItemActivated()) {
+                yax.MouseDownClickedVal = ImPlot::GetPlotMousePos(IMPLOT_AUTO,IMPLOT_AUTO).y;
+                yax.Activated = true;
+            } else {
+                yax.Activated = false;
+            }
             float long_thresh = 0.5; // seconds
             y_long_press[i] = ImGui::IsItemActive() && (ImGui::GetCurrentContext()->ActiveIdTimer >= long_thresh) && (ImGui::GetMouseDragDelta()==ImVec2(0.f,0.f));
 //             if (y_click[i] && IO.MouseDoubleClicked[gp.InputMap.Fit])
