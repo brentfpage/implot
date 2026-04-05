@@ -4224,8 +4224,16 @@ bool DragLineY(int n_id, double* value, const ImVec4& col, float thickness, ImPl
     bool hovered = false, held = false;
 
     ImGui::KeepAliveID(id);
+    bool modified = false;
     if (input) {
         bool clicked = ImGui::ButtonBehavior(rect,id,&hovered,&held);
+        if(!ImHasFlag(flags, ImPlotDragToolFlags_NoAxisInputs)) {
+            held = held || ImPlot::IsAxisHeld(ImAxis_Y1);
+            if(ImPlot::IsAxisClicked(ImAxis_Y1)) {
+                *value = ImPlot::getClickedVal(ImAxis_Y1);
+                modified = true;
+            }
+        }
         if (out_clicked) *out_clicked = clicked;
         if (out_hovered) *out_hovered = hovered;
         if (out_held)    *out_held    = held;
@@ -4238,7 +4246,6 @@ bool DragLineY(int n_id, double* value, const ImVec4& col, float thickness, ImPl
     ImVec4 color = IsColorAuto(col) ? ImGui::GetStyleColorVec4(ImGuiCol_Text) : col;
     ImU32 col32 = ImGui::ColorConvertFloat4ToU32(color);
 
-    bool modified = false;
     if (held && ImGui::IsMouseDragging(0)) {
         *value = ImPlot::GetPlotMousePos(IMPLOT_AUTO,IMPLOT_AUTO).y;
         modified = true;
