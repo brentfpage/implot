@@ -1927,6 +1927,12 @@ bool UpdateInput(ImPlotPlot& plot) {
             ImGui::KeepAliveID(xax_button_id);
             ImGui::SetLastItemData(xax_button_id, axis_button_flags, ImGuiItemStatusFlags_None, xax.HoverRect); // brentfpage: to get ImGui::IsItemActive to work;
             x_click[i]  = ImGui::ButtonBehavior(xax.HoverRect,xax_button_id,&xax.Hovered,&xax.Held,axis_button_flags);
+            if(xax.Held && ImGui::IsItemActivated()) {
+                xax.MouseDownClickedVal = ImPlot::GetPlotMousePos(IMPLOT_AUTO,IMPLOT_AUTO).x;
+                xax.Activated = true;
+            } else {
+                xax.Activated = false;
+            }
             float long_thresh = 0.5; // seconds
             x_long_press[i] = ImGui::IsItemActive() && (ImGui::GetCurrentContext()->ActiveIdTimer >= long_thresh) && (ImGui::GetMouseDragDelta()==ImVec2(0.f,0.f));
 //             if (x_click[i] && IO.MouseDoubleClicked[gp.InputMap.Fit])
@@ -3907,6 +3913,20 @@ bool IsAxisHeld(ImAxis axis) {
     IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "IsAxisHeld() needs to be called between BeginPlot() and EndPlot()!");
     SetupLock();
     return gp.CurrentPlot->Axes[axis].Held;
+}
+
+bool IsAxisActivated(ImAxis axis) {
+    ImPlotContext& gp = *GImPlot;
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "IsAxisActivated() needs to be called between BeginPlot() and EndPlot()!");
+    SetupLock();
+    return gp.CurrentPlot->Axes[axis].Activated;
+}
+
+float getMouseDownClickedVal(ImAxis axis) {
+    ImPlotContext& gp = *GImPlot;
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "getMouseDownClickedVal() needs to be called between BeginPlot() and EndPlot()!");
+    SetupLock();
+    return gp.CurrentPlot->Axes[axis].MouseDownClickedVal;
 }
 
 float getClickedVal(ImAxis axis) {

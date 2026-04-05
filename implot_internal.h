@@ -685,6 +685,7 @@ struct ImPlotAxis
     double               ScaleToPixel;
     float                Datum1, Datum2;
     float                ClickedVal;
+    float                MouseDownClickedVal;
 
     ImRect               HoverRect;
     int                  LabelOffset;
@@ -699,6 +700,7 @@ struct ImPlotAxis
     bool                 Hovered;
     bool                 Clicked;
     bool                 Held;
+    bool                 Activated;
 
     ImPlotAxis() {
         ID               = 0;
