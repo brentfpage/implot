@@ -1131,6 +1131,8 @@ IMPLOT_API bool IsPlotHovered();
 IMPLOT_API bool IsAxisHovered(ImAxis axis);
 // Returns true if the axis label area in the current plot is clicked and released
 IMPLOT_API bool IsAxisClicked(ImAxis axis);
+// Returns true if the axis label area in the current plot is held for longer than long_threshold
+IMPLOT_API bool IsAxisLongPressed(ImAxis axis);
 // Returns true if the axis label area in the current plot is held
 IMPLOT_API bool IsAxisHeld(ImAxis axis);
 // Returns true if the axis label area in the current plot is held and it wasn't held in the previous frame

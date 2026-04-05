@@ -1935,6 +1935,7 @@ bool UpdateInput(ImPlotPlot& plot) {
             }
             float long_thresh = 0.5; // seconds
             x_long_press[i] = ImGui::IsItemActive() && (ImGui::GetCurrentContext()->ActiveIdTimer >= long_thresh) && (ImGui::GetMouseDragDelta()==ImVec2(0.f,0.f));
+            xax.LongPressed = x_long_press[i];
 //             if (x_click[i] && IO.MouseDoubleClicked[gp.InputMap.Fit])
 //                 plot.FitThisFrame = xax.FitThisFrame = true;
             xax.Held  = xax.Held && can_pan;
@@ -1959,6 +1960,7 @@ bool UpdateInput(ImPlotPlot& plot) {
             }
             float long_thresh = 0.5; // seconds
             y_long_press[i] = ImGui::IsItemActive() && (ImGui::GetCurrentContext()->ActiveIdTimer >= long_thresh) && (ImGui::GetMouseDragDelta()==ImVec2(0.f,0.f));
+            yax.LongPressed = y_long_press[i];
 //             if (y_click[i] && IO.MouseDoubleClicked[gp.InputMap.Fit])
 //                 plot.FitThisFrame = yax.FitThisFrame = true;
             yax.Held  = yax.Held && can_pan;
@@ -2060,48 +2062,6 @@ bool UpdateInput(ImPlotPlot& plot) {
         } else {
             plot.YAxis(i).Clicked = false;
         }
-    }
-    for (int i = 0; i < IMPLOT_NUM_X_AXES; i++) {
-        if (x_long_press[i]) {
-            ImGui::SetNextWindowPos(ImGui::GetWindowPos() + ImGui::GetWindowSize()/2.,0,{0.5,0.5});
-        ImGui::SetNextWindowPos(ImGui::GetWindowPos() + ImGui::GetWindowSize()/2.,0,{0.5,0.5});
-            ImGui::OpenPopup("select x lims");
-        }
-    }
-    if(ImGui::BeginPopup("select x lims")) {
-        ImGuiStyle& style = ImGui::GetStyle();
-        ImGui::Text("X-axis limits:");
-        ImGui::PushItemWidth(ImGui::CalcTextSize("-10.00 s").x + 2 * style.FramePadding.x);
-        float new_min = plot.XAxis(0).Range.Min;
-        float new_max = plot.XAxis(0).Range.Max;
-        ImGui::InputFloat("Min", &new_min, 0.f, 0.f, "%.2f s");
-        float new_window = plot.XAxis(0).Range.Max - new_min;
-        float new_delay = fabs(-new_max); // fabs to prevent signed 0
-        ImGui::InputFloat("Window", &new_window, 0.f, 0.f, "%.2f s");
-        ImGui::InputFloat("Delay", &new_delay, 0.f, 0.f, "%.2f s");
-        new_min = -new_delay - new_window;
-        new_max = -new_delay;
-        plot.XAxis(0).SetMax(new_max);
-        plot.XAxis(0).SetMin(new_min);
-        ImGui::EndPopup();
-    }
-    for (int i = 0; i < IMPLOT_NUM_Y_AXES; i++) {
-        if (y_long_press[i]) {
-            ImGui::OpenPopup("select y lims");
-            ImGui::SetNextWindowPos(ImGui::GetWindowPos() + ImGui::GetWindowSize()/2.,0,{0.5,0.5});
-        }
-    }
-    if(ImGui::BeginPopup("select y lims")) {
-        ImGuiStyle& style = ImGui::GetStyle();
-        ImGui::Text("Y-axis limits:");
-        ImGui::PushItemWidth(ImGui::CalcTextSize("-20.00 V").x + 2 * style.FramePadding.x);
-        float new_max = plot.YAxis(0).Range.Max;
-        float new_min = plot.YAxis(0).Range.Min;
-        ImGui::InputFloat("Max", &new_max, 0.f, 0.f, "%.2f V");
-        ImGui::InputFloat("Min", &new_min, 0.f, 0.f, "%.2f V");
-        plot.YAxis(0).SetMax(new_max);
-        plot.YAxis(0).SetMin(new_min);
-        ImGui::EndPopup();
     }
 
 
@@ -3926,6 +3886,13 @@ bool IsAxisActivated(ImAxis axis) {
     IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "IsAxisActivated() needs to be called between BeginPlot() and EndPlot()!");
     SetupLock();
     return gp.CurrentPlot->Axes[axis].Activated;
+}
+
+bool IsAxisLongPressed(ImAxis axis) {
+    ImPlotContext& gp = *GImPlot;
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "IsLongPressed() needs to be called between BeginPlot() and EndPlot()!");
+    SetupLock();
+    return gp.CurrentPlot->Axes[axis].LongPressed;
 }
 
 float getMouseDownClickedVal(ImAxis axis) {

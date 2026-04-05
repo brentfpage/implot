@@ -701,6 +701,7 @@ struct ImPlotAxis
     bool                 Clicked;
     bool                 Held;
     bool                 Activated;
+    bool                 LongPressed;
 
     ImPlotAxis() {
         ID               = 0;
