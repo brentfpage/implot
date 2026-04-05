@@ -239,6 +239,7 @@ enum ImPlotDragToolFlags_ {
     ImPlotDragToolFlags_NoFit     = 1 << 1, // the drag tool won't be considered for plot fits
     ImPlotDragToolFlags_NoInputs  = 1 << 2, // lock the tool from user inputs
     ImPlotDragToolFlags_Delayed   = 1 << 3, // tool rendering will be delayed one frame; useful when applying position-constraints
+    ImPlotDragToolFlags_NoAxisInputs = 1 << 4, // lock the tool from axis press inputs
 };
 
 // Flags for ColormapScale
@@ -1128,7 +1129,13 @@ IMPLOT_API ImPlotRect GetPlotLimits(ImAxis x_axis = IMPLOT_AUTO, ImAxis y_axis =
 IMPLOT_API bool IsPlotHovered();
 // Returns true if the axis label area in the current plot is hovered.
 IMPLOT_API bool IsAxisHovered(ImAxis axis);
-// Returns true if the bounding frame of a subplot is hovered.
+// Returns true if the axis label area in the current plot is clicked and released
+IMPLOT_API bool IsAxisClicked(ImAxis axis);
+// Returns true if the axis label area in the current plot is held
+IMPLOT_API bool IsAxisHeld(ImAxis axis);
+// Returns the clicked value in data coordinates
+IMPLOT_API float getClickedVal(ImAxis axis);
+// Returns true if the bounding frame of a subplot is clicked.
 IMPLOT_API bool IsSubplotsHovered();
 
 // Returns true if the current plot is being box selected.

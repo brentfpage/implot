@@ -1883,7 +1883,9 @@ bool UpdateInput(ImPlotPlot& plot) {
                                              | ImGuiButtonFlags_MouseButtonRight
                                              | ImGuiButtonFlags_MouseButtonMiddle;
     const ImGuiButtonFlags axis_button_flags = ImGuiButtonFlags_FlattenChildren
-                                             | plot_button_flags;
+                                             | ImGuiButtonFlags_AllowOverlap
+                                             | ImGuiButtonFlags_PressedOnClickRelease;
+
 
     const bool plot_clicked = ImGui::ButtonBehavior(plot.PlotRect,plot.ID,&plot.Hovered,&plot.Held,plot_button_flags);
 #if (IMGUI_VERSION_NUM < 18966)
@@ -1922,10 +1924,11 @@ bool UpdateInput(ImPlotPlot& plot) {
         if (xax.Enabled) {
             ImGui::KeepAliveID(xax.ID);
             ImGuiID xax_button_id = ImGui::GetIDWithSeed("button", NULL, xax.ID);
-            ImGui::ItemAdd(xax.HoverRect, xax_button_id, NULL, 0);
+            ImGui::KeepAliveID(xax_button_id);
+            ImGui::SetLastItemData(xax_button_id, axis_button_flags, ImGuiItemStatusFlags_None, xax.HoverRect); // brentfpage: to get ImGui::IsItemActive to work;
             x_click[i]  = ImGui::ButtonBehavior(xax.HoverRect,xax_button_id,&xax.Hovered,&xax.Held,axis_button_flags);
             float long_thresh = 0.5; // seconds
-            x_long_press[i] = ImGui::IsItemActive() && (ImGui::GetCurrentContext()->ActiveIdTimer >= long_thresh);
+            x_long_press[i] = ImGui::IsItemActive() && (ImGui::GetCurrentContext()->ActiveIdTimer >= long_thresh) && (ImGui::GetMouseDragDelta()==ImVec2(0.f,0.f));
             if (x_click[i] && IO.MouseDoubleClicked[gp.InputMap.Fit])
                 plot.FitThisFrame = xax.FitThisFrame = true;
             xax.Held  = xax.Held && can_pan;
@@ -1939,10 +1942,11 @@ bool UpdateInput(ImPlotPlot& plot) {
         if (yax.Enabled) {
             ImGui::KeepAliveID(yax.ID);
             ImGuiID yax_button_id = ImGui::GetIDWithSeed("button", NULL, yax.ID);
-            ImGui::ItemAdd(yax.HoverRect, yax_button_id, NULL, 0);
+            ImGui::KeepAliveID(yax_button_id);
+            ImGui::SetLastItemData(yax_button_id, axis_button_flags, ImGuiItemStatusFlags_None, yax.HoverRect); // brentfpage: to get ImGui::IsItemActive to work;
             y_click[i] = ImGui::ButtonBehavior(yax.HoverRect,yax_button_id,&yax.Hovered,&yax.Held,axis_button_flags);
             float long_thresh = 0.5; // seconds
-            y_long_press[i] = ImGui::IsItemActive() && (ImGui::GetCurrentContext()->ActiveIdTimer >= long_thresh);
+            y_long_press[i] = ImGui::IsItemActive() && (ImGui::GetCurrentContext()->ActiveIdTimer >= long_thresh) && (ImGui::GetMouseDragDelta()==ImVec2(0.f,0.f));
             if (y_click[i] && IO.MouseDoubleClicked[gp.InputMap.Fit])
                 plot.FitThisFrame = yax.FitThisFrame = true;
             yax.Held  = yax.Held && can_pan;
@@ -1985,7 +1989,7 @@ bool UpdateInput(ImPlotPlot& plot) {
 
     // DRAG INPUT -------------------------------------------------------------
 
-// brentfpage : in the two blocks below, replaced (x,y)_held[i] with plot.Held below in order to use (x,y)_held[i] for a different action.  with this replacement, dragging on the main plot canvas still brings about a pan, as desired.  If the ImPlotPlot `plot` consists of multiple plots, it's not obvious that using plot.Held would be desirable, but probably Labrador will only ever need one plot
+// brentfpage : in the two blocks below, replaced (x,y)_held[i] with plot.Held in order to use (x,y)_held[i] for a different action.  with this replacement, dragging on the main plot canvas still brings about a pan, as desired.  If the ImPlotPlot `plot` consists of multiple plots, it's not obvious that using plot.Held would work, but probably Labrador will only ever need one plot
     if (any_held && !plot.Selecting) {
         int drag_direction = 0;
         for (int i = 0; i < IMPLOT_NUM_X_AXES; i++) {
@@ -2029,6 +2033,16 @@ bool UpdateInput(ImPlotPlot& plot) {
             }
         }
     }
+    for (int i = 0; i < IMPLOT_NUM_X_AXES; i++) {
+        if (x_click[i]) {
+            plot.XAxis(i).ClickedVal = ImPlot::GetPlotMousePos(IMPLOT_AUTO,IMPLOT_AUTO).x;
+            plot.XAxis(i).Clicked = true;
+        } else {
+            plot.XAxis(i).Clicked = false;
+        }
+    }
+
+
     for (int i = 0; i < IMPLOT_NUM_X_AXES; i++) {
         if (x_long_press[i]) {
             ImGui::SetNextWindowPos(ImGui::GetWindowPos() + ImGui::GetWindowSize()/2.,0,{0.5,0.5});
@@ -3875,6 +3889,27 @@ bool IsAxisHovered(ImAxis axis) {
     return gp.CurrentPlot->Axes[axis].Hovered;
 }
 
+bool IsAxisClicked(ImAxis axis) {
+    ImPlotContext& gp = *GImPlot;
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "IsAxisClicked() needs to be called between BeginPlot() and EndPlot()!");
+    SetupLock();
+    return gp.CurrentPlot->Axes[axis].Clicked;
+}
+
+bool IsAxisHeld(ImAxis axis) {
+    ImPlotContext& gp = *GImPlot;
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "IsAxisHeld() needs to be called between BeginPlot() and EndPlot()!");
+    SetupLock();
+    return gp.CurrentPlot->Axes[axis].Held;
+}
+
+float getClickedVal(ImAxis axis) {
+    ImPlotContext& gp = *GImPlot;
+    IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "getClickedVal() needs to be called between BeginPlot() and EndPlot()!");
+    SetupLock();
+    return gp.CurrentPlot->Axes[axis].ClickedVal;
+}
+
 bool IsSubplotsHovered() {
     ImPlotContext& gp = *GImPlot;
     IM_ASSERT_USER_ERROR(gp.CurrentSubplot != nullptr, "IsSubplotsHovered() needs to be called between BeginSubplots() and EndSubplots()!");
@@ -4021,7 +4056,7 @@ IMPLOT_API void TagYV(double y, const ImVec4& color, const char* fmt, va_list ar
     TagV(gp.CurrentPlot->CurrentY, y, color, fmt, args);
 }
 
-constexpr float DRAG_GRAB_HALF_SIZE = 4.0f;
+constexpr float DRAG_GRAB_HALF_SIZE = 16.0f;
 
 bool DragPoint(int n_id, double* x, double* y, const ImVec4& col, float radius, ImPlotDragToolFlags flags, bool* out_clicked, bool* out_hovered, bool* out_held) {
     ImGui::PushID("#IMPLOT_DRAG_POINT");
@@ -4094,8 +4129,15 @@ bool DragLineX(int n_id, double* value, const ImVec4& col, float thickness, ImPl
     bool hovered = false, held = false;
 
     ImGui::KeepAliveID(id);
+    ImGui::SetLastItemData(id, flags, ImGuiItemStatusFlags_None, rect); // brentfpage: to get ImGui::ItemIsDeactivatedAfterEdit to work
     if (input) {
         bool clicked = ImGui::ButtonBehavior(rect,id,&hovered,&held);
+        if(!ImHasFlag(flags, ImPlotDragToolFlags_NoAxisInputs)) {
+            held = held || ImPlot::IsAxisHeld(ImAxis_X1);
+            if(ImPlot::IsAxisClicked(ImAxis_X1)) {
+                *value = ImPlot::getClickedVal(ImAxis_X1);
+            }
+        }
         if (out_clicked) *out_clicked = clicked;
         if (out_hovered) *out_hovered = hovered;
         if (out_held)    *out_held    = held;
@@ -4111,6 +4153,7 @@ bool DragLineX(int n_id, double* value, const ImVec4& col, float thickness, ImPl
     bool modified = false;
     if (held && ImGui::IsMouseDragging(0)) {
         *value = ImPlot::GetPlotMousePos(IMPLOT_AUTO,IMPLOT_AUTO).x;
+//         ImGui::MarkItemEdited(id);// brentfpage: to get ImGui::ItemIsDeactivatedAfterEdit to work
         modified = true;
     }
 

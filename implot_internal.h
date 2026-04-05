@@ -684,6 +684,7 @@ struct ImPlotAxis
     double               ScaleMin, ScaleMax;
     double               ScaleToPixel;
     float                Datum1, Datum2;
+    float                ClickedVal;
 
     ImRect               HoverRect;
     int                  LabelOffset;
@@ -696,6 +697,7 @@ struct ImPlotAxis
     bool                 HasFormatSpec;
     bool                 ShowDefaultTicks;
     bool                 Hovered;
+    bool                 Clicked;
     bool                 Held;
 
     ImPlotAxis() {
@@ -723,6 +725,7 @@ struct ImPlotAxis
         Locator          = nullptr;
         Enabled          = Hovered = Held = FitThisFrame = HasRange = HasFormatSpec = false;
         ShowDefaultTicks = true;
+        Clicked          = false;
     }
 
     inline void Reset() {
