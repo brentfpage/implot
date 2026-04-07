@@ -757,7 +757,7 @@ bool ShowLegendEntries(ImPlotItemGroup& items, const ImRect& legend_bb, bool hov
 constexpr float TICK_FILL_X = 0.8f;
 constexpr float TICK_FILL_Y = 1.0f;
 
-void Locator_Default(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data) {
+void Locator_Default(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data, double* offset, int* log10_multiplier) {
     if (range.Min == range.Max)
         return;
     const int nMinor        = 10;
@@ -768,6 +768,27 @@ void Locator_Default(ImPlotTicker& ticker, const ImPlotRange& range, float pixel
     const double graphmax   = ceil(range.Max / interval) * interval;
     bool first_major_set    = false;
     int  first_major_idx    = 0;
+    bool delta_mode = false;
+    if((range.Max > 0) == (range.Min > 0)) {
+        double min_abs = ImMin(ImAbs(range.Min),ImAbs(range.Max));
+        *log10_multiplier = (int)IM_ROUND(ImLog10((range.Max - range.Min)));
+        if(*log10_multiplier < 0) {
+            *log10_multiplier = *log10_multiplier - 1;
+        }
+        *log10_multiplier = ImSign(static_cast<double>(*log10_multiplier)) * IM_TRUNC(ImAbs(static_cast<double>(*log10_multiplier)/3.)) * 3;
+
+        delta_mode = !(*log10_multiplier==0);
+
+        if(delta_mode) {
+            double ten_base = ImPow(10.,-static_cast<double>(*log10_multiplier) + 2 * ((*log10_multiplier < 0) ? -1 : 1));
+
+            *offset = (range.Max > 0) ? floor(graphmin*ten_base) / ten_base : ceil(graphmax*ten_base) / ten_base;
+
+        } else {
+            *offset = 0;
+        }
+
+    }
     const int idx0 = ticker.TickCount(); // ticker may have user custom ticks
     ImVec2 total_size(0,0);
     for (double major = graphmin; major < graphmax + 0.5 * interval; major += interval) {
@@ -779,12 +800,18 @@ void Locator_Default(ImPlotTicker& ticker, const ImPlotRange& range, float pixel
                 first_major_idx = ticker.TickCount();
                 first_major_set = true;
             }
-            total_size += ticker.AddTick(major, true, 0, true, formatter, formatter_data).LabelSize;
+            char label[16];
+            sprintf(label, (char *) formatter_data, (major - (delta_mode ? *offset : 0.))* (delta_mode ? pow(10,-*log10_multiplier) : 1));
+            total_size += ticker.AddTick(major, true, 0, true, label).LabelSize;
+//             total_size += ticker.AddTick(major, true, 0, true, formatter, formatter_data).LabelSize;
         }
         for (int i = 1; i < nMinor; ++i) {
             double minor = major + i * interval / nMinor;
             if (range.Contains(minor)) {
-                total_size += ticker.AddTick(minor, false, 0, true, formatter, formatter_data).LabelSize;
+                char label[16];
+                sprintf(label, (char *) formatter_data, (minor - (delta_mode ? *offset : 0.))* (delta_mode ? pow(10,-*log10_multiplier) : 1));
+                total_size += ticker.AddTick(minor, false, 0, true, label).LabelSize;
+//             total_size += ticker.AddTick(minor, false, 0, true, formatter, formatter_data).LabelSize;
             }
         }
     }
@@ -837,7 +864,7 @@ void AddTicksLogarithmic(const ImPlotRange& range, int exp_min, int exp_max, int
     }
 }
 
-void Locator_Log10(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data) {
+void Locator_Log10(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data, double* offset, int* log10_multiplier) {
     int exp_min, exp_max, exp_step;
     if (CalcLogarithmicExponents(range, pixels, vertical, exp_min, exp_max, exp_step))
         AddTicksLogarithmic(range, exp_min, exp_max, exp_step, ticker, formatter, formatter_data);
@@ -854,7 +881,7 @@ float CalcSymLogPixel(double plt, const ImPlotRange& range, float pixels) {
     return (float)(0 + scaleToPixels * (plt - range.Min));
 }
 
-void Locator_SymLog(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data) {
+void Locator_SymLog(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data, double* offset, int* log10_multiplier) {
     if (range.Min >= -1 && range.Max <= 1) {
         Locator_Default(ticker, range, pixels, vertical, formatter, formatter_data);
     }
@@ -1257,7 +1284,7 @@ inline ImPlotDateTimeSpec GetDateTimeFmt(const ImPlotDateTimeSpec* ctx, ImPlotTi
     return fmt;
 }
 
-void Locator_Time(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data) {
+void Locator_Time(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data, double* offset, int* log10_multiplier) {
     IM_ASSERT_USER_ERROR(vertical == false, "Cannot locate Time ticks on vertical axis!");
     (void)vertical;
     // get units for level 0 and level 1 labels
@@ -2670,10 +2697,12 @@ void SetupFinish() {
     const float plot_height = plot.CanvasRect.GetHeight() - pad_top - pad_bot;
 
     // (2) get y tick labels (needed for left/right pad)
+    double y_offset = 0.;
+    int y_log10_multiplier = 0.;
     for (int i = 0; i < IMPLOT_NUM_Y_AXES; i++) {
         ImPlotAxis& axis = plot.YAxis(i);
         if (axis.WillRender() && axis.ShowDefaultTicks && plot_height > 0) {
-            axis.Locator(axis.Ticker, axis.Range, plot_height, true, axis.Formatter, axis.FormatterData);
+            axis.Locator(axis.Ticker, axis.Range, plot_height, true, axis.Formatter, axis.FormatterData, &y_offset, &y_log10_multiplier);
         }
     }
 
@@ -2683,10 +2712,12 @@ void SetupFinish() {
     const float plot_width = plot.CanvasRect.GetWidth() - pad_left - pad_right;
 
     // (4) get x ticks
+    double x_offset = 0.;
+    int x_log10_multiplier = 0.;
     for (int i = 0; i < IMPLOT_NUM_X_AXES; i++) {
         ImPlotAxis& axis = plot.XAxis(i);
         if (axis.WillRender() && axis.ShowDefaultTicks && plot_width > 0) {
-            axis.Locator(axis.Ticker, axis.Range, plot_width, false, axis.Formatter, axis.FormatterData);
+            axis.Locator(axis.Ticker, axis.Range, plot_width, false, axis.Formatter, axis.FormatterData, &x_offset, &x_log10_multiplier);
         }
     }
 
@@ -2806,7 +2837,28 @@ void SetupFinish() {
         const ImPlotTicker& tkr = ax.Ticker;
         const bool opp = ax.IsOpposite();
         if (ax.HasLabel()) {
-            const char* label        = plot.GetAxisLabel(ax);
+            const char* base_label = plot.GetAxisLabel(ax);
+            char label[36];
+            if(x_offset==0. && x_log10_multiplier==0) {
+                strcpy(label, base_label);
+            } else {
+                strcpy(label, "(");
+                strcat(label, base_label);
+                char label_offset_label[12];
+                sprintf(label_offset_label, (char *)ax.FormatterData, ImAbs(x_offset));
+                if(x_offset>0) {
+                    strcat(label," - ");
+                } else if (x_offset < 0){
+                    strcat(label," + ");
+                }
+                char label_log10_label[12];
+                sprintf(label_log10_label, ") x 10^%d", -x_log10_multiplier);
+                if(x_offset!=0) {
+                    strcat(label, label_offset_label);
+                }
+                strcat(label, label_log10_label);
+            }
+
             const ImVec2 label_size  = ImGui::CalcTextSize(label);
             const float label_offset = (ax.HasTickLabels() ? tkr.MaxSize.y + gp.Style.LabelPadding.y : 0.0f)
                                      + (tkr.Levels - 1) * (txt_height + gp.Style.LabelPadding.y)
@@ -2815,6 +2867,7 @@ void SetupFinish() {
                                    opp ? ax.Datum1 - label_offset - label_size.y : ax.Datum1 + label_offset);
             DrawList.AddText(label_pos, ax.ColorTxt, label);
         }
+
         if (ax.HasTickLabels()) {
             for (int j = 0; j < tkr.TickCount(); ++j) {
                 const ImPlotTick& tk = tkr.Ticks[j];
