@@ -761,7 +761,7 @@ void Locator_Default(ImPlotTicker& ticker, const ImPlotRange& range, float pixel
     if (range.Min == range.Max)
         return;
     const int nMinor        = 10;
-    const int nMajor        = ImMax(2, (int)IM_ROUND(pixels / (vertical ? 300.0f : 400.0f)));
+    const int nMajor        = ImMax(2, (int)IM_ROUND(pixels / (vertical ? 300.0f : 500.0f)));
     const double nice_range = NiceNum(range.Size() * 0.99, false);
     const double interval   = NiceNum(nice_range / (nMajor - 1), true);
     const double graphmin   = floor(range.Min / interval) * interval;
