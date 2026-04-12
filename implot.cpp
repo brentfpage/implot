@@ -2593,6 +2593,35 @@ bool BeginPlot(const char* title_id, const ImVec2& size, ImPlotFlags flags) {
 // SetupFinish
 //-----------------------------------------------------------------------------
 
+void tick_helper(char* label, ImPlotAxis ax, double offset, int log10_multiplier) {
+    ImPlotPlot &plot  = *GImPlot->CurrentPlot;
+    const char* base_label = plot.GetAxisLabel(ax);
+    if(offset==0. && log10_multiplier==0) {
+        strcpy(label, base_label);
+    } else {
+        if(offset!=0.) {
+            strcpy(label, "(");
+        } else {
+            strcpy(label, "");
+        }
+        strcat(label, base_label);
+        if(offset>0) {
+            strcat(label," - ");
+        } else if (offset < 0){
+            strcat(label," + ");
+        }
+        char label_offset_label[12];
+        sprintf(label_offset_label, (char *)ax.FormatterData, ImAbs(offset));
+        if(offset!=0) {
+            strcat(label, label_offset_label);
+            strcat(label, ")");
+        }
+        char label_log10_label[12];
+        sprintf(label_log10_label, " x 10^%d", -log10_multiplier);
+        strcat(label, label_log10_label);
+    }
+}
+
 void SetupFinish() {
     IM_ASSERT_USER_ERROR(GImPlot != nullptr, "No current context. Did you call ImPlot::CreateContext() or ImPlot::SetCurrentContext()?");
     ImPlotContext& gp = *GImPlot;
@@ -2841,30 +2870,7 @@ void SetupFinish() {
         if (ax.HasLabel()) {
             const char* base_label = plot.GetAxisLabel(ax);
             char label[36];
-            if(x_offset==0. && x_log10_multiplier==0) {
-                strcpy(label, base_label);
-            } else {
-                if(x_offset!=0.) {
-                    strcpy(label, "(");
-                } else {
-                    strcpy(label, "");
-                }
-                strcat(label, base_label);
-                if(x_offset>0) {
-                    strcat(label," - ");
-                } else if (x_offset < 0){
-                    strcat(label," + ");
-                }
-                char label_offset_label[12];
-                sprintf(label_offset_label, (char *)ax.FormatterData, ImAbs(x_offset));
-                if(x_offset!=0) {
-                    strcat(label, label_offset_label);
-                    strcat(label, ")");
-                }
-                char label_log10_label[12];
-                sprintf(label_log10_label, " x 10^%d", -x_log10_multiplier);
-                strcat(label, label_log10_label);
-            }
+            tick_helper(label, ax, x_offset, x_log10_multiplier);
 
             const ImVec2 label_size  = ImGui::CalcTextSize(label);
             const float label_offset = (ax.HasTickLabels() ? tkr.MaxSize.y + gp.Style.LabelPadding.y : 0.0f)
@@ -2905,32 +2911,8 @@ void SetupFinish() {
         const ImPlotTicker& tkr = ax.Ticker;
         const bool opp = ax.IsOpposite();
         if (ax.HasLabel()) {
-            const char* base_label = plot.GetAxisLabel(ax);
             char label[36];
-            if(y_offset==0. && y_log10_multiplier==0) {
-                strcpy(label, base_label);
-            } else {
-                if(y_offset!=0.) {
-                    strcpy(label, "(");
-                } else {
-                    strcpy(label, "");
-                }
-                strcat(label, base_label);
-                if(y_offset>0) {
-                    strcat(label," - ");
-                } else if (y_offset < 0){
-                    strcat(label," + ");
-                }
-                char label_offset_label[12];
-                sprintf(label_offset_label, (char *)ax.FormatterData, ImAbs(y_offset));
-                if(y_offset!=0) {
-                    strcat(label, label_offset_label);
-                    strcat(label, ")");
-                }
-                char label_log10_label[12];
-                sprintf(label_log10_label, " x 10^%d", -y_log10_multiplier);
-                strcat(label, label_log10_label);
-            }
+            tick_helper(label, ax, y_offset, y_log10_multiplier);
             const ImVec2 label_size  = CalcTextSizeVertical(label);
             const float label_offset = (ax.HasTickLabels() ? tkr.MaxSize.x + gp.Style.LabelPadding.x : 0.0f)
                                      + gp.Style.LabelPadding.x;
