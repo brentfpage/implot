@@ -757,7 +757,7 @@ bool ShowLegendEntries(ImPlotItemGroup& items, const ImRect& legend_bb, bool hov
 constexpr float TICK_FILL_X = 0.8f;
 constexpr float TICK_FILL_Y = 1.0f;
 
-// brentfpage : added 'offset' and 'log10_multiplier' to support improvement of the tick presentation when the user zooms in very far
+// brentfpage : added 'offset' and 'log10_multiplier' to improve the tick presentation when the user zooms in very far
 void Locator_Default(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data, double* offset, int* log10_multiplier) {
     if (range.Min == range.Max)
         return;
@@ -2905,7 +2905,32 @@ void SetupFinish() {
         const ImPlotTicker& tkr = ax.Ticker;
         const bool opp = ax.IsOpposite();
         if (ax.HasLabel()) {
-            const char* label        = plot.GetAxisLabel(ax);
+            const char* base_label = plot.GetAxisLabel(ax);
+            char label[36];
+            if(y_offset==0. && y_log10_multiplier==0) {
+                strcpy(label, base_label);
+            } else {
+                if(y_offset!=0.) {
+                    strcpy(label, "(");
+                } else {
+                    strcpy(label, "");
+                }
+                strcat(label, base_label);
+                if(y_offset>0) {
+                    strcat(label," - ");
+                } else if (y_offset < 0){
+                    strcat(label," + ");
+                }
+                char label_offset_label[12];
+                sprintf(label_offset_label, (char *)ax.FormatterData, ImAbs(y_offset));
+                if(y_offset!=0) {
+                    strcat(label, label_offset_label);
+                    strcat(label, ")");
+                }
+                char label_log10_label[12];
+                sprintf(label_log10_label, " x 10^%d", -y_log10_multiplier);
+                strcat(label, label_log10_label);
+            }
             const ImVec2 label_size  = CalcTextSizeVertical(label);
             const float label_offset = (ax.HasTickLabels() ? tkr.MaxSize.x + gp.Style.LabelPadding.x : 0.0f)
                                      + gp.Style.LabelPadding.x;
