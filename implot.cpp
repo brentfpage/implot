@@ -771,20 +771,37 @@ void Locator_Default(ImPlotTicker& ticker, const ImPlotRange& range, float pixel
     int  first_major_idx    = 0;
     bool delta_mode = false;
     if((range.Max > 0) == (range.Min > 0)) {
-        double min_abs = ImMin(ImAbs(range.Min),ImAbs(range.Max));
-        *log10_multiplier = (int)IM_ROUND(ImLog10((range.Max - range.Min)));
-        if(*log10_multiplier < 0) {
-            *log10_multiplier = *log10_multiplier - 1;
-        }
-        *log10_multiplier = ImSign(static_cast<double>(*log10_multiplier)) * IM_TRUNC(ImAbs(static_cast<double>(*log10_multiplier)/3.)) * 3;
-
+        int n_axis_unit_thresh_log10 = 1;
+        double val = ImLog10(range.Max - range.Min) - n_axis_unit_thresh_log10; 
+        *log10_multiplier = (int)ImSign(val) * floor(abs(val)/3) * 3;
+// as the user zooms in further and further, transition from labeling the axis
+// in units of 10^p seconds to units of 10^(p-3) seconds when the range is less
+// than 10^(n_axis_unit_thresh_log10) * 10^(p-3) seconds.  Here, p is a
+// multiple of 3.
+        int log10_multiplier2 = (int)floor(ImLog10(range.Max-range.Min));
         delta_mode = !(*log10_multiplier==0);
 
         if(delta_mode) {
-            double ten_base = ImPow(10.,-static_cast<double>(*log10_multiplier) + 2 * ((*log10_multiplier < 0) ? -1 : 1));
-
-            *offset = (range.Max > 0) ? floor(graphmin*ten_base) / ten_base : ceil(graphmax*ten_base) / ten_base;
-
+            int offset_variation_ctrl = 1; 
+// how often should the offset change as the user pans across the axis?  the
+// range is between 10^(log10_multiplier + n_axis_unit_thresh_log10) and
+// 10^(log10_multiplier - 3 + n_axis_unit_thresh_log10) seconds.  the two lines
+// below set the axis offset in seconds to the min tick value (positive values)
+// or max tick value (negative values) truncated to -(log10_multiplier +
+// n_axis_unit_thresh_log10 + offset_variation_ctrl) digits to the right of the
+// decimal place.  The place value of this place is minimally
+// 10^(offset_variation_ctrl) * (the visible axis range) and maximally a
+// thousand times greater.
+//             double ten_base = pow(10.,-((*log10_multiplier) + n_axis_unit_thresh_log10 + offset_variation_ctrl))
+// how often should the offset change as the user pans across the axis?  the
+// range is between 10^(log10_multiplier2) and 10^(log10_multiplier2 + 1)
+// seconds.  the two lines below set the axis offset in seconds to the min tick
+// value (positive values) or max tick value (negative values) truncated to
+// -(log10_multiplier2 + 2) digits to the right of the decimal place.  The
+// place value of this place is between 10 and 100 times greater than the
+// visible axis range
+            double ten_base = pow(10.,-(log10_multiplier2 + 2));
+            *offset = (range.Max > 0) ? floor(graphmin*ten_base) / ten_base : ceil(graphmax*ten_base) / ten_base; 
         } else {
             *offset = 0;
         }
