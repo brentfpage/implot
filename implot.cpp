@@ -782,17 +782,6 @@ void Locator_Default(ImPlotTicker& ticker, const ImPlotRange& range, float pixel
         delta_mode = !(*log10_multiplier==0);
 
         if(delta_mode) {
-            int offset_variation_ctrl = 1; 
-// how often should the offset change as the user pans across the axis?  the
-// range is between 10^(log10_multiplier + n_axis_unit_thresh_log10) and
-// 10^(log10_multiplier - 3 + n_axis_unit_thresh_log10) seconds.  the two lines
-// below set the axis offset in seconds to the min tick value (positive values)
-// or max tick value (negative values) truncated to -(log10_multiplier +
-// n_axis_unit_thresh_log10 + offset_variation_ctrl) digits to the right of the
-// decimal place.  The place value of this place is minimally
-// 10^(offset_variation_ctrl) * (the visible axis range) and maximally a
-// thousand times greater.
-//             double ten_base = pow(10.,-((*log10_multiplier) + n_axis_unit_thresh_log10 + offset_variation_ctrl))
 // how often should the offset change as the user pans across the axis?  the
 // range is between 10^(log10_multiplier2) and 10^(log10_multiplier2 + 1)
 // seconds.  the two lines below set the axis offset in seconds to the min tick
