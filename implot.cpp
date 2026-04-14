@@ -782,8 +782,13 @@ void Locator_Default(ImPlotTicker& ticker, const ImPlotRange& range, float pixel
         int n_axis_unit_thresh_log10 = 1;
         double val = ImLog10(range.Max - range.Min) - n_axis_unit_thresh_log10; 
         *log10_multiplier = (int)ImSign(val) * floor(abs(val)/3) * 3;
+        
+        int log10_multiplier_for_mean = (int) * floor(ImLog10((range.Max + range.Min)/2));
 
-// compare the visible axis range to the mean to determine whether the axis labels should be written as an offset + a delta.  to produce a more compact tick presentation, the delta has to be multiplied by some factor – let's just say that factor is 10^(log10_multiplier) from above.
+// compare the visible axis range to the mean to determine whether the axis
+// labels should be written as an offset + a delta.  to produce a more compact
+// tick presentation, the delta has to be multiplied by some factor – let's
+// just say that factor is 10^(log10_multiplier) from above.
 // you want the switching on of delta_mode to coincide with the 
 // you only want to do this if the delta can be multiplied by 1000 and be written in a co
 //
