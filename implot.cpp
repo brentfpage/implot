@@ -771,24 +771,51 @@ void Locator_Default(ImPlotTicker& ticker, const ImPlotRange& range, float pixel
     int  first_major_idx    = 0;
     bool delta_mode = false;
     if((range.Max > 0) == (range.Min > 0)) {
+
+// as the user zooms in, transition from labeling the axis in units of 10^p
+// user units to units of 10^(p-3) user units when the range is less than
+// 10^(n_axis_unit_thresh_log10) * 10^(p-3) user units.  user unit here means a
+// change of 1 in the units employed by the user.  Also, p is a multiple of 3. So,
+// the range is always between 10^(n_axis_unit_thresh_log10-3) and
+// 10^(n_axis_unit_thresh_log10) label units, where a label unit is a change of
+// 1 in the units used for the tick labeling
         int n_axis_unit_thresh_log10 = 1;
         double val = ImLog10(range.Max - range.Min) - n_axis_unit_thresh_log10; 
         *log10_multiplier = (int)ImSign(val) * floor(abs(val)/3) * 3;
-// as the user zooms in further and further, transition from labeling the axis
-// in units of 10^p seconds to units of 10^(p-3) seconds when the range is less
-// than 10^(n_axis_unit_thresh_log10) * 10^(p-3) seconds.  Here, p is a
-// multiple of 3.
-        int log10_multiplier2 = (int)floor(ImLog10(range.Max-range.Min));
-        delta_mode = !(*log10_multiplier==0);
 
+// compare the visible axis range to the mean to determine whether the axis labels should be written as an offset + a delta.  to produce a more compact tick presentation, the delta has to be multiplied by some factor – let's just say that factor is 10^(log10_multiplier) from above.
+// you want the switching on of delta_mode to coincide with the 
+// you only want to do this if the delta can be multiplied by 1000 and be written in a co
+//
+// the range is always between .01 and 10 label units
+// in delta mode, the mean is greater than 100 times the range, which means it's minimally 1 label unit 
+// want to write the delta in units at least 10^3 times smaller than offset
+// the condition mean > 10^(3-n_axis_unit_thresh_log10) * range for delta mode entails that the mean is at least 1 label unit (see comment above)
+        bool delta_mode = (range.Max - range.Min) / abs((range.Max + range.Min)/2) < pow(10, n_axis_unit_thresh_log10 - 3)
+
+//             1.01 - 1 = 0.01
+
+// how does the transition between the different units interact with the
+// introduction of delta mode?  How many units tend to be in the range mean?
+// The axis mean can be an aribtrarily high number of the units adopted for the
+// axis.  In delta mode, the mean is minimally the range * 100, so between 1
+// and 1000 label units.  In whatever mode, the range is minimally 0.01 times
+// the currently adopted unit.  So, the mean is minimally the adopted unit  
+//
         if(delta_mode) {
+            double edge_tick = (range.Max > 0) ? graphmin : graphmax;
+            double range_mean = (range.Max + range.Min)/2;
+            double edge_delta = (edge_tick - range_mean);
+
+
 // how often should the offset change as the user pans across the axis?  the
-// range is between 10^(log10_multiplier2) and 10^(log10_multiplier2 + 1)
-// seconds.  the two lines below set the axis offset in seconds to the min tick
-// value (positive values) or max tick value (negative values) truncated to
-// -(log10_multiplier2 + 2) digits to the right of the decimal place.  The
+// range is between 10^(log10_multiplier2) and 10^(log10_multiplier2 + 1) user
+// units.  the two lines below set the axis offset in user units to the min
+// tick value (positive values) or max tick value (negative values) truncated
+// to -(log10_multiplier2 + 2) digits to the right of the decimal place.  The
 // place value of this place is between 10 and 100 times greater than the
 // visible axis range
+            int log10_multiplier2 = (int)floor(ImLog10(range.Max-range.Min));
             double ten_base = pow(10.,-(log10_multiplier2 + 2));
             *offset = (range.Max > 0) ? floor(graphmin*ten_base) / ten_base : ceil(graphmax*ten_base) / ten_base; 
         } else {
