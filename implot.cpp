@@ -761,22 +761,22 @@ bool UseOffset(ImPlotRange Range) {
     return range_most_sig_place - extremum_most_sig_place <= -3;
 }
 
-int GetDecimalShift(ImPlotRange range) {
+int GetDecimalShift(ImPlotRange Range) {
     int decimal_shift;
     int n_axis_unit_thresh_log10 = 1;
-    if(UseOffset(range)) {
+    if(UseOffset(Range)) {
     // as the user zooms in, transition from labeling the axis in units of 10^p user units to units
     // of 10^(p-3) user units when the range is less than 10^(n_axis_unit_thresh_log10) * 10^(p-3)
     // user units.  user unit here means a change of 1 in the units employed by the user.  Also, p
     // is a multiple of 3. So, the range is always between 10^(n_axis_unit_thresh_log10-3) and
     // 10^(n_axis_unit_thresh_log10) label units, where a label unit is a change of 1 in the units
     // used for the tick labeling
-        decimal_shift = ((int)((ImLog10(range.Max - range.Min) - n_axis_unit_thresh_log10)/3)) * 3;
+        decimal_shift = ((int)((ImLog10(Range.Max - Range.Min) - n_axis_unit_thresh_log10)/3)) * 3;
     } else {
     // if the abs of the most extreme value is not between 0.1 and 100 user units, then scale the
     // labels by a factor 10^(3n) to ensure the abs of the most extreme label value is between 0.1 and 100
     // label units
-        decimal_shift = ((int)((ImLog10(ImMax(ImAbs(range.Max),ImAbs(range.Min))) - 2)/3)) * 3;
+        decimal_shift = ((int)((ImLog10(ImMax(ImAbs(Range.Max),ImAbs(Range.Min))) - 2)/3)) * 3;
     }
     return decimal_shift;
 }
@@ -792,7 +792,7 @@ double GetOffset(ImPlotRange Range) {
         // to the left of the range_most_sig_place.  The place value of this place is
         // between 10 and 100 times greater than the visible axis range
         float ten_base = pow(10.,-range_most_sig_place - 2);
-        double offset = (minabs > 0) ? floor(minabs*ten_base) / ten_base : ceil(minabs*ten_base)/ten_base;//(Range.Max > 0) ? floor(graphmintick*ten_base) / ten_base : ceil(graphmaxtick*ten_base) / ten_base; 
+        offset = (minabs > 0) ? floor(minabs*ten_base) / ten_base : ceil(minabs*ten_base)/ten_base;//(Range.Max > 0) ? floor(graphmintick*ten_base) / ten_base : ceil(graphmaxtick*ten_base) / ten_base; 
     } else {
         offset = 0.;
     }
