@@ -750,6 +750,63 @@ bool ShowLegendEntries(ImPlotItemGroup& items, const ImRect& legend_bb, bool hov
     return hovered && !any_item_hovered;
 }
 
+bool UseOffset(ImPlotRange Range) {
+    if((Range.Max > 0) != (Range.Min > 0)) {
+        return false;
+    }
+    int range_most_sig_place = (int) floor(ImLog10(Range.Max - Range.Min));
+    int extremum_most_sig_place = (int) floor(ImLog10(ImMax(ImAbs(Range.Max),ImAbs(Range.Min))));
+    // present the ticks as a delta relative to an offset if the most significant digit of the
+    // range is at least 3 digits to the right of the most significant digit of the extremum
+    return range_most_sig_place - extremum_most_sig_place <= -3;
+}
+
+int GetDecimalShift(ImPlotRange range) {
+    int decimal_shift;
+    int n_axis_unit_thresh_log10 = 1;
+    if(UseOffset(range)) {
+    // as the user zooms in, transition from labeling the axis in units of 10^p user units to units
+    // of 10^(p-3) user units when the range is less than 10^(n_axis_unit_thresh_log10) * 10^(p-3)
+    // user units.  user unit here means a change of 1 in the units employed by the user.  Also, p
+    // is a multiple of 3. So, the range is always between 10^(n_axis_unit_thresh_log10-3) and
+    // 10^(n_axis_unit_thresh_log10) label units, where a label unit is a change of 1 in the units
+    // used for the tick labeling
+        decimal_shift = ((int)((ImLog10(range.Max - range.Min) - n_axis_unit_thresh_log10)/3)) * 3;
+    } else {
+    // if the abs of the most extreme value is not between 0.1 and 100 user units, then scale the
+    // labels by a factor 10^(3n) to ensure the abs of the most extreme label value is between 0.1 and 100
+    // label units
+        decimal_shift = ((int)((ImLog10(ImMax(ImAbs(range.Max),ImAbs(range.Min))) - 2)/3)) * 3;
+    }
+    return decimal_shift;
+}
+
+double GetOffset(ImPlotRange Range) {
+    double offset;
+    if(UseOffset(Range)) {
+        int range_most_sig_place = (int) floor(ImLog10(Range.Max - Range.Min));
+        double minabs = (Range.Max > 0) ? Range.Min : Range.Max;
+        // how often should the offset change as the user pans across the axis? 
+        // the two lines below set the axis offset to the range min
+        // (positive values) or the range max (negative values) truncated to 2 digits
+        // to the left of the range_most_sig_place.  The place value of this place is
+        // between 10 and 100 times greater than the visible axis range
+        float ten_base = pow(10.,-range_most_sig_place - 2);
+        double offset = (minabs > 0) ? floor(minabs*ten_base) / ten_base : ceil(minabs*ten_base)/ten_base;//(Range.Max > 0) ? floor(graphmintick*ten_base) / ten_base : ceil(graphmaxtick*ten_base) / ten_base; 
+    } else {
+        offset = 0.;
+    }
+    return offset;
+}
+
+
+//-----------------------------------------------------------------------------
+// Formatters (those for time series are elsewhere)
+//-----------------------------------------------------------------------------
+int FormatOffsetPlusDelta(double value, char* buff, int size, char* fmt, int decimal_shift, double offset) {
+    return ImFormatString(buff, size, fmt, (value - offset) * ImPow(10., (double) -decimal_shift));
+}
+
 //-----------------------------------------------------------------------------
 // Locators
 //-----------------------------------------------------------------------------
@@ -757,8 +814,7 @@ bool ShowLegendEntries(ImPlotItemGroup& items, const ImRect& legend_bb, bool hov
 constexpr float TICK_FILL_X = 0.8f;
 constexpr float TICK_FILL_Y = 1.0f;
 
-// brentfpage : added 'offset' and 'log10_multiplier' to improve the tick presentation when the user zooms in very far
-void Locator_Default(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data, double* offset, int* log10_multiplier) {
+void Locator_Default(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data) {
     if (range.Min == range.Max)
         return;
     const int nMinor        = 10;
@@ -769,43 +825,18 @@ void Locator_Default(ImPlotTicker& ticker, const ImPlotRange& range, float pixel
     const double graphmax   = ceil(range.Max / interval) * interval;
     bool first_major_set    = false;
     int  first_major_idx    = 0;
-    bool delta_mode = false;
 
-// as the user zooms in, transition from labeling the axis in units of 10^p
-// user units to units of 10^(p-3) user units when the range is less than
-// 10^(n_axis_unit_thresh_log10) * 10^(p-3) user units.  user unit here means a
-// change of 1 in the units employed by the user.  Also, p is a multiple of 3. So,
-// the range is always between 10^(n_axis_unit_thresh_log10-3) and
-// 10^(n_axis_unit_thresh_log10) label units, where a label unit is a change of
-// 1 in the units used for the tick labeling
-    int n_axis_unit_thresh_log10 = 1;
-    double val = ImLog10(range.Max - range.Min) - n_axis_unit_thresh_log10; 
-    *log10_multiplier = (int)ImSign(val) * floor(abs(val)/3) * 3;
-
-    *offset = 0;
-    if((range.Max > 0) == (range.Min > 0)) {
-        int range_most_sig_place = static_cast<int>(floor(ImLog10(range.Max - range.Min)));
-        int mean_most_sig_place = static_cast<int>(floor(ImLog10(abs(range.Max + range.Min)/2)));
-
-// present the ticks as a delta relative to an offset if the most significant
-// digit of the range is at least 3 digits to the right of the most significant
-// digit of the mean
-        delta_mode = range_most_sig_place - mean_most_sig_place <= -3;
-
-// how often should the offset change as the user pans across the axis?  the
-// range is between 10^(range_most_sig_place) and 10^(range_most_sig_place + 1)
-// user units.  the two lines below set the axis offset to the min tick value
-// (positive values) or max tick value (negative values) truncated to 2 digits
-// to the left of the range_most_sig_place.  The place value of this place is
-// between 10 and 100 times greater than the visible axis range
-        
-        if(delta_mode) {
-            float ten_base = pow(10.,-range_most_sig_place - 2);
-            *offset = (range.Max > 0) ? floor(graphmin*ten_base) / ten_base : ceil(graphmax*ten_base) / ten_base; 
-        }
-    }
     const int idx0 = ticker.TickCount(); // ticker may have user custom ticks
     ImVec2 total_size(0,0);
+    Formatter_Offset_Plus_Delta_Data fopdd;
+    if(formatter == Formatter_Offset_Plus_Delta) {
+        ticker.LabelDecimalShift = GetDecimalShift(range);
+        ticker.LabelOffset = GetOffset(range);
+        fopdd.decimal_shift = ticker.LabelDecimalShift;
+        fopdd.offset = ticker.LabelOffset;
+        fopdd.fmt = (char *) formatter_data;
+        formatter_data = &fopdd;
+    }
     for (double major = graphmin; major < graphmax + 0.5 * interval; major += interval) {
         // is this zero? combat zero formatting issues
         if (major-interval < 0 && major+interval > 0)
@@ -815,18 +846,12 @@ void Locator_Default(ImPlotTicker& ticker, const ImPlotRange& range, float pixel
                 first_major_idx = ticker.TickCount();
                 first_major_set = true;
             }
-            char label[16];
-            sprintf(label, (char *) formatter_data, (major - (delta_mode ? *offset : 0.))* (delta_mode ? pow(10,-*log10_multiplier) : 1));
-            total_size += ticker.AddTick(major, true, 0, true, label).LabelSize;
-//             total_size += ticker.AddTick(major, true, 0, true, formatter, formatter_data).LabelSize;
+            total_size += ticker.AddTick(major, true, 0, true, formatter, formatter_data).LabelSize;
         }
         for (int i = 1; i < nMinor; ++i) {
             double minor = major + i * interval / nMinor;
             if (range.Contains(minor)) {
-                char label[16];
-                sprintf(label, (char *) formatter_data, (minor - (delta_mode ? *offset : 0.))* (delta_mode ? pow(10,-*log10_multiplier) : 1));
-                total_size += ticker.AddTick(minor, false, 0, true, label).LabelSize;
-//             total_size += ticker.AddTick(minor, false, 0, true, formatter, formatter_data).LabelSize;
+                total_size += ticker.AddTick(minor, false, 0, true, formatter, formatter_data).LabelSize;
             }
         }
     }
@@ -836,6 +861,10 @@ void Locator_Default(ImPlotTicker& ticker, const ImPlotRange& range, float pixel
             ticker.Ticks[i].ShowLabel = false;
         for (int i = first_major_idx+1; i < ticker.TickCount(); i += 2)
             ticker.Ticks[i].ShowLabel = false;
+    }
+    if(formatter == Formatter_Offset_Plus_Delta) {
+        // reset formatter_data so that it doesn't point to fopdd when fopdd goes out of scope
+        formatter_data = fopdd.fmt;
     }
 }
 
@@ -879,7 +908,7 @@ void AddTicksLogarithmic(const ImPlotRange& range, int exp_min, int exp_max, int
     }
 }
 
-void Locator_Log10(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data, double* offset, int* log10_multiplier) {
+void Locator_Log10(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data) {
     int exp_min, exp_max, exp_step;
     if (CalcLogarithmicExponents(range, pixels, vertical, exp_min, exp_max, exp_step))
         AddTicksLogarithmic(range, exp_min, exp_max, exp_step, ticker, formatter, formatter_data);
@@ -896,7 +925,7 @@ float CalcSymLogPixel(double plt, const ImPlotRange& range, float pixels) {
     return (float)(0 + scaleToPixels * (plt - range.Min));
 }
 
-void Locator_SymLog(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data, double* offset, int* log10_multiplier) {
+void Locator_SymLog(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data) {
     if (range.Min >= -1 && range.Max <= 1) {
         Locator_Default(ticker, range, pixels, vertical, formatter, formatter_data);
     }
@@ -1299,7 +1328,7 @@ inline ImPlotDateTimeSpec GetDateTimeFmt(const ImPlotDateTimeSpec* ctx, ImPlotTi
     return fmt;
 }
 
-void Locator_Time(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data, double* offset, int* log10_multiplier) {
+void Locator_Time(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data) {
     IM_ASSERT_USER_ERROR(vertical == false, "Cannot locate Time ticks on vertical axis!");
     (void)vertical;
     // get units for level 0 and level 1 labels
@@ -2607,36 +2636,31 @@ bool BeginPlot(const char* title_id, const ImVec2& size, ImPlotFlags flags) {
 // SetupFinish
 //-----------------------------------------------------------------------------
 
-void tick_helper(char* label, ImPlotAxis ax, double offset, int log10_multiplier) {
+// brentfpage: add tick offset and decimal_shift to the main axis label
+void AxisLabelWithDecorations(char* label, ImPlotAxis ax) {
     ImPlotPlot &plot  = *GImPlot->CurrentPlot;
     const char* base_label = plot.GetAxisLabel(ax);
-    if(offset==0. && log10_multiplier==0) {
-        strcpy(label, base_label);
-    } else {
-        if(offset!=0. && (log10_multiplier!=0)) {
-            strcpy(label, "(");
+    if(ax.Formatter == Formatter_Offset_Plus_Delta) {
+        if((ax.Ticker.LabelDecimalShift != 0) && (ax.Ticker.LabelOffset != 0)) {
+            ImFormatString(label, IMPLOT_LABEL_MAX_SIZE, "(%s %c %g) x 10^%d",
+                base_label,
+                ax.Ticker.LabelOffset > 0 ? '-' : '+',
+                ImAbs(ax.Ticker.LabelOffset),
+                -ax.Ticker.LabelDecimalShift);
+        } else if (ax.Ticker.LabelOffset != 0) {
+            ImFormatString(label, IMPLOT_LABEL_MAX_SIZE, "%s %c %g",
+                base_label,
+                ax.Ticker.LabelOffset > 0 ? '-' : '+',
+                ImAbs(ax.Ticker.LabelOffset));
+        } else if (ax.Ticker.LabelDecimalShift != 0) {
+            ImFormatString(label, IMPLOT_LABEL_MAX_SIZE, "(%s) x 10^%d",
+                    base_label,
+                    -ax.Ticker.LabelDecimalShift);
         } else {
-            strcpy(label, "");
+            ImFormatString(label, IMPLOT_LABEL_MAX_SIZE, "%s", base_label);
         }
-        strcat(label, base_label);
-        if(offset>0) {
-            strcat(label," - ");
-        } else if (offset < 0){
-            strcat(label," + ");
-        }
-        char label_offset_label[12];
-        sprintf(label_offset_label, (char *)ax.FormatterData, ImAbs(offset));
-        if(offset!=0) {
-            strcat(label, label_offset_label);
-            if(log10_multiplier!=0) {
-                strcat(label, ")");
-            }
-        }
-        char label_log10_label[12];
-        if(log10_multiplier != 0) {
-            sprintf(label_log10_label, " x 10^%d", -log10_multiplier);
-            strcat(label, label_log10_label);
-        }
+    } else {
+        ImFormatString(label, IMPLOT_LABEL_MAX_SIZE, "%s", base_label);
     }
 }
 
@@ -2669,9 +2693,12 @@ void SetupFinish() {
             else
                 axis.FormatterData = (void*)IMPLOT_LABEL_FORMAT;
         }
+
         if (axis.Locator == nullptr) {
             axis.Locator = Locator_Default;
         }
+
+        IM_ASSERT_USER_ERROR((axis.Formatter != Formatter_Offset_Plus_Delta) || (axis.Locator == Locator_Default), "The Offset_Plus_Delta tick formatter can only be used with the default tick locator");
     }
 
     // setup nullptr orthogonal axes
@@ -2745,12 +2772,10 @@ void SetupFinish() {
     const float plot_height = plot.CanvasRect.GetHeight() - pad_top - pad_bot;
 
     // (2) get y tick labels (needed for left/right pad)
-    double y_offset = 0.;
-    int y_log10_multiplier = 0.;
     for (int i = 0; i < IMPLOT_NUM_Y_AXES; i++) {
         ImPlotAxis& axis = plot.YAxis(i);
         if (axis.WillRender() && axis.ShowDefaultTicks && plot_height > 0) {
-            axis.Locator(axis.Ticker, axis.Range, plot_height, true, axis.Formatter, axis.FormatterData, &y_offset, &y_log10_multiplier);
+            axis.Locator(axis.Ticker, axis.Range, plot_height, true, axis.Formatter, axis.FormatterData);
         }
     }
 
@@ -2760,12 +2785,10 @@ void SetupFinish() {
     const float plot_width = plot.CanvasRect.GetWidth() - pad_left - pad_right;
 
     // (4) get x ticks
-    double x_offset = 0.;
-    int x_log10_multiplier = 0.;
     for (int i = 0; i < IMPLOT_NUM_X_AXES; i++) {
         ImPlotAxis& axis = plot.XAxis(i);
         if (axis.WillRender() && axis.ShowDefaultTicks && plot_width > 0) {
-            axis.Locator(axis.Ticker, axis.Range, plot_width, false, axis.Formatter, axis.FormatterData, &x_offset, &x_log10_multiplier);
+            axis.Locator(axis.Ticker, axis.Range, plot_width, false, axis.Formatter, axis.FormatterData);
         }
     }
 
@@ -2868,7 +2891,6 @@ void SetupFinish() {
             RenderGridLinesY(DrawList, y_axis.Ticker, plot.PlotRect,  y_axis.ColorMaj, y_axis.ColorMin, gp.Style.MajorGridSize.y, gp.Style.MinorGridSize.y);
     }
 
-    // brentfpage: offsets and multipliers for x-axis ticking.  Still needs to be tested for positive x values.
     // render x axis button, label, tick labels
     for (int i = 0; i < IMPLOT_NUM_X_AXES; i++) {
         ImPlotAxis& ax = plot.XAxis(i);
@@ -2886,10 +2908,8 @@ void SetupFinish() {
         const ImPlotTicker& tkr = ax.Ticker;
         const bool opp = ax.IsOpposite();
         if (ax.HasLabel()) {
-            const char* base_label = plot.GetAxisLabel(ax);
-            char label[36];
-            tick_helper(label, ax, x_offset, x_log10_multiplier);
-
+            char label[IMPLOT_LABEL_MAX_SIZE];
+            AxisLabelWithDecorations(label, ax); 
             const ImVec2 label_size  = ImGui::CalcTextSize(label);
             const float label_offset = (ax.HasTickLabels() ? tkr.MaxSize.y + gp.Style.LabelPadding.y : 0.0f)
                                      + (tkr.Levels - 1) * (txt_height + gp.Style.LabelPadding.y)
@@ -2929,8 +2949,8 @@ void SetupFinish() {
         const ImPlotTicker& tkr = ax.Ticker;
         const bool opp = ax.IsOpposite();
         if (ax.HasLabel()) {
-            char label[36];
-            tick_helper(label, ax, y_offset, y_log10_multiplier);
+            char label[IMPLOT_LABEL_MAX_SIZE];
+            AxisLabelWithDecorations(label, ax); 
             const ImVec2 label_size  = CalcTextSizeVertical(label);
             const float label_offset = (ax.HasTickLabels() ? tkr.MaxSize.x + gp.Style.LabelPadding.x : 0.0f)
                                      + gp.Style.LabelPadding.x;
@@ -4140,7 +4160,7 @@ IMPLOT_API void TagYV(double y, const ImVec4& color, const char* fmt, va_list ar
     TagV(gp.CurrentPlot->CurrentY, y, color, fmt, args);
 }
 
-constexpr float DRAG_GRAB_HALF_SIZE = 16.0f;
+constexpr float DRAG_GRAB_HALF_SIZE = 4.0f;
 
 bool DragPoint(int n_id, double* x, double* y, const ImVec4& col, float radius, ImPlotDragToolFlags flags, bool* out_clicked, bool* out_hovered, bool* out_held) {
     ImGui::PushID("#IMPLOT_DRAG_POINT");

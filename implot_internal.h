@@ -279,7 +279,7 @@ enum ImPlotMarkerInternal_ {
 // [SECTION] Callbacks
 //-----------------------------------------------------------------------------
 
-typedef void (*ImPlotLocator)(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data, double* offset, int* log10_multiplier);
+typedef void (*ImPlotLocator)(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data);
 
 //-----------------------------------------------------------------------------
 // [SECTION] Structs
@@ -588,6 +588,8 @@ struct ImPlotTicker {
     ImVec2               MaxSize;
     ImVec2               LateSize;
     int                  Levels;
+    double               LabelOffset;
+    int                  LabelDecimalShift;
 
     ImPlotTicker() {
         Reset();
@@ -644,6 +646,8 @@ struct ImPlotTicker {
         MaxSize = LateSize;
         LateSize = ImVec2(0,0);
         Levels = 1;
+        LabelOffset = 0.;
+        LabelDecimalShift = 0;
     }
 
     int TickCount() const {
@@ -1152,6 +1156,7 @@ struct ImPlotPlot
     }
 
     inline const char* GetAxisLabel(const ImPlotAxis& axis) const { return TextBuffer.Buf.Data + axis.LabelOffset; }
+
 };
 
 // Holds subplot data that must persist after EndSubplot
@@ -1684,6 +1689,19 @@ static inline int Formatter_Default(double value, char* buff, int size, void* da
     return ImFormatString(buff, size, fmt, value);
 }
 
+struct Formatter_Offset_Plus_Delta_Data {
+    int decimal_shift;
+    double offset;
+    char* fmt;
+};
+
+IMPLOT_API int FormatOffsetPlusDelta(double value, char* buffer, int size, char * fmt, int decimal_shift, double offset);
+
+inline int Formatter_Offset_Plus_Delta(double value, char* buff, int size, void* data) {
+    Formatter_Offset_Plus_Delta_Data* fopdd = (Formatter_Offset_Plus_Delta_Data*)data;
+    return FormatOffsetPlusDelta(value, buff, size, fopdd->fmt, fopdd->decimal_shift, fopdd->offset);
+}
+
 static inline int Formatter_Logit(double value, char* buff, int size, void*) {
     if (value == 0.5)
         return ImFormatString(buff,size,"1/2");
@@ -1709,10 +1727,10 @@ static inline int Formatter_Time(double, char* buff, int size, void* data) {
 // [SECTION] Locator
 //------------------------------------------------------------------------------
 
-IMPLOT_API void Locator_Default(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data, double* offset = nullptr, int* log10_multiplier = nullptr);
-IMPLOT_API void Locator_Time(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data, double* offset = nullptr, int* log10_multiplier = nullptr);
-IMPLOT_API void Locator_Log10(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data, double* offset = nullptr, int* log10_multiplier = nullptr);
-IMPLOT_API void Locator_SymLog(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data, double* offset = nullptr, int* log10_multiplier = nullptr);
+IMPLOT_API void Locator_Default(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data);
+IMPLOT_API void Locator_Time(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data);
+IMPLOT_API void Locator_Log10(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data);
+IMPLOT_API void Locator_SymLog(ImPlotTicker& ticker, const ImPlotRange& range, float pixels, bool vertical, ImPlotFormatter formatter, void* formatter_data);
 
 } // namespace ImPlot
 
