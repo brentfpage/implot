@@ -4000,14 +4000,14 @@ bool IsAxisLongPressed(ImAxis axis) {
     return gp.CurrentPlot->Axes[axis].LongPressed;
 }
 
-float getMouseDownClickedVal(ImAxis axis) {
+double getMouseDownClickedVal(ImAxis axis) {
     ImPlotContext& gp = *GImPlot;
     IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "getMouseDownClickedVal() needs to be called between BeginPlot() and EndPlot()!");
     SetupLock();
     return gp.CurrentPlot->Axes[axis].MouseDownClickedVal;
 }
 
-float getClickedVal(ImAxis axis) {
+double getClickedVal(ImAxis axis) {
     ImPlotContext& gp = *GImPlot;
     IM_ASSERT_USER_ERROR(gp.CurrentPlot != nullptr, "getClickedVal() needs to be called between BeginPlot() and EndPlot()!");
     SetupLock();

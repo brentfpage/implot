@@ -688,8 +688,8 @@ struct ImPlotAxis
     double               ScaleMin, ScaleMax;
     double               ScaleToPixel;
     float                Datum1, Datum2;
-    float                ClickedVal;
-    float                MouseDownClickedVal;
+    double               ClickedVal;
+    double               MouseDownClickedVal;
 
     ImRect               HoverRect;
     int                  LabelOffset;

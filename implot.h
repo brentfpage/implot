@@ -1138,9 +1138,9 @@ IMPLOT_API bool IsAxisHeld(ImAxis axis);
 // Returns true if the axis label area in the current plot is held and it wasn't held in the previous frame
 IMPLOT_API bool IsAxisActivated(ImAxis axis);
 // Returns the clicked value in data coordinates
-IMPLOT_API float getClickedVal(ImAxis axis);
+IMPLOT_API double getClickedVal(ImAxis axis);
 // Returns the initial click position in the case of a `held` event
-IMPLOT_API float getMouseDownClickedVal(ImAxis axis);
+IMPLOT_API double getMouseDownClickedVal(ImAxis axis);
 // Returns true if the bounding frame of a subplot is clicked.
 IMPLOT_API bool IsSubplotsHovered();
 
